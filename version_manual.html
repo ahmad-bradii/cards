@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cards Score Counter</title>
+<style>
+  :root {
+    --bg: #f5f5f4;
+    --surface: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --border: #d6d3d1;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --gold: #ca8a04;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --surface: #292524;
+      --text: #f5f5f4;
+      --muted: #a8a29e;
+      --border: #44403c;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --gold: #facc15;
+      --danger: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 600px; margin: 0 auto; padding: 16px; }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    padding: 8px 12px;
+  }
+  button:disabled { opacity: .35; cursor: default; }
+
+  /* --- Toolbar --- */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .toolbar button { flex: 1; padding: 10px 6px; font-size: .9rem; font-weight: 500; }
+
+  /* --- Score board layout --- */
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .player-column { display: flex; flex-direction: column; gap: 10px; }
+
+  .total-box {
+    position: relative;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 8px 12px;
+    text-align: center;
+    min-width: 0;
+    user-select: none;
+    transition: border-color .15s, background .15s;
+  }
+  .box-head { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 32px; }
+  .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; color: var(--text); font-weight: 600; }
+  .crown { color: var(--gold); visibility: hidden; }
+  .total-box.leading { border-color: var(--accent); }
+  .total-box.leading .crown { visibility: visible; }
+  .total { font-size: 2.6rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .delta { font-size: .8rem; color: var(--muted); min-height: 1.2em; font-variant-numeric: tabular-nums; }
+  .delta.flash { animation: flash .9s ease-out; }
+  @keyframes flash { from { color: var(--accent); transform: scale(1.25); } to { color: var(--muted); transform: none; } }
+
+  .icon-btn { border: none; background: transparent; width: 32px; height: 32px; padding: 0; color: var(--muted); flex-shrink: 0; }
+  .icon-btn:hover { background: var(--bg); color: var(--text); }
+  .icon-btn.del:hover { color: var(--danger); }
+
+  /* --- Points pad grids --- */
+  .pad { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .pad button {
+    padding: 12px 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    transition: transform .05s, background-color .1s;
+  }
+  .pad button:active { transform: scale(.95); background: var(--accent-soft); }
+
+  /* --- History dialog --- */
+  dialog {
+    width: calc(100% - 32px);
+    max-width: 560px;
+    max-height: 85vh;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+  .dialog-head {
+    position: sticky; top: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .dialog-head h2 { font-size: 1.05rem; margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: .8rem; }
+  th:first-child, td:first-child { padding-left: 14px; color: var(--muted); }
+  td.pts { font-weight: 600; }
+  td.row-actions { white-space: nowrap; text-align: right; padding-right: 10px; }
+  tfoot td { font-weight: 700; border-bottom: none; }
+  .empty { color: var(--muted); text-align: center; padding: 20px; margin: 0; }
+  .dialog-foot { padding: 14px; text-align: center; border-top: 1px solid var(--border); }
+  .reset-btn { color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <div class="toolbar">
+    <button id="undo" title="Undo last round">↶ Back</button>
+    <button id="redo" title="Redo round">Forward ↷</button>
+    <button id="open-history">History (0)</button>
+  </div>
+
+  <div class="board">
+    <!-- Player 1 Column -->
+    <div class="player-column">
+      <div class="total-box" id="box-0">
+        <div class="box-head">
+          <span class="crown" title="Leading">★</span>
+          <span class="pname" id="pname-0"></span>
+          <button class="icon-btn rename" data-index="0" aria-label="Rename player 1">✎</button>
+        </div>
+        <div class="total" id="total-0">0</div>
+        <div class="delta" id="delta-0"></div>
+      </div>
+      <div class="pad" id="pad-0"></div>
+    </div>
+
+    <!-- Player 2 Column -->
+    <div class="player-column">
+      <div class="total-box" id="box-1">
+        <div class="box-head">
+          <span class="crown" title="Leading">★</span>
+          <span class="pname" id="pname-1"></span>
+          <button class="icon-btn rename" data-index="1" aria-label="Rename player 2">✎</button>
+        </div>
+        <div class="total" id="total-1">0</div>
+        <div class="delta" id="delta-1"></div>
+      </div>
+      <div class="pad" id="pad-1"></div>
+    </div>
+  </div>
+</main>
+
+<dialog id="history">
+  <div class="dialog-head">
+    <h2>History</h2>
+    <button class="icon-btn" id="close-history" aria-label="Close">✕</button>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th id="h-name0"></th><th id="h-name1"></th><th></th></tr></thead>
+    <tbody id="history-body"></tbody>
+    <tfoot><tr><td>Σ</td><td id="h-total0"></td><td id="h-total1"></td><td></td></tr></tfoot>
+  </table>
+  <p class="empty" id="history-empty">No rounds yet</p>
+  <div class="dialog-foot"><button class="reset-btn" id="reset">Reset game</button></div>
+</dialog>
+
+<script>
+const STORAGE_KEY = 'cardsCalculator.v3';
+const BUTTON_VALUES = [
+  10, 20, 30, 40, 50, 60, 70, 80, 90, 100,
+  110, 120, 130, 140, 150, 160, 250, 320, 500, 640
+];
+
+const $ = id => document.getElementById(id);
+const historyDialog = $('history');
+
+let state = load();
+
+function defaultNames() {
+  return ['Player 1', 'Player 2'];
+}
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && Array.isArray(saved.names) && saved.names.length === 2
+        && Array.isArray(saved.rounds) && Array.isArray(saved.redo)) return saved;
+  } catch (e) {}
+  return { names: defaultNames(), rounds: [], redo: [] };
+}
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+const totals = () => state.rounds.reduce((t, r) => [t[0] + r.points[0], t[1] + r.points[1]], [0, 0]);
+
+function addPoints(playerIndex, value) {
+  const points = [0, 0];
+  points[playerIndex] = value;
+  state.rounds.push({ id: newId(), points });
+  state.redo = [];
+  save();
+  render({ flash: true });
+}
+
+function deleteRound(id) {
+  state.rounds = state.rounds.filter(r => r.id !== id);
+  state.redo = [];
+  save();
+  render();
+}
+
+function undo() {
+  if (!state.rounds.length) return;
+  state.redo.push(state.rounds.pop());
+  save();
+  render({ flash: true });
+}
+
+function redo() {
+  if (!state.redo.length) return;
+  state.rounds.push(state.redo.pop());
+  save();
+  render({ flash: true });
+}
+
+function rename(i) {
+  const name = prompt('Player name', state.names[i]);
+  if (name === null) return;
+  state.names[i] = name.trim().slice(0, 24) || defaultNames()[i];
+  save();
+  render();
+}
+
+// --- Render UI ---
+function render({ flash = false } = {}) {
+  const t = totals();
+  const lead = t[0] === t[1] ? -1 : (t[0] > t[1] ? 0 : 1);
+  const last = state.rounds[state.rounds.length - 1];
+
+  [0, 1].forEach(i => {
+    $(`box-${i}`).classList.toggle('leading', lead === i);
+    $(`pname-${i}`).textContent = state.names[i];
+    $(`total-${i}`).textContent = t[i];
+    
+    const delta = $(`delta-${i}`);
+    delta.textContent = last && last.points[i] > 0 ? `+${last.points[i]}` : '';
+    if (flash) {
+      delta.classList.remove('flash');
+      void delta.offsetWidth; // restart animation
+      delta.classList.add('flash');
+    }
+  });
+
+  $('undo').disabled = state.rounds.length === 0;
+  $('redo').disabled = state.redo.length === 0;
+  $('open-history').textContent = `History (${state.rounds.length})`;
+
+  renderHistory(t);
+}
+
+function renderHistory(t) {
+  $('h-name0').textContent = state.names[0];
+  $('h-name1').textContent = state.names[1];
+  $('h-total0').textContent = t[0];
+  $('h-total1').textContent = t[1];
+  $('history-empty').hidden = state.rounds.length > 0;
+
+  $('history-body').replaceChildren(...state.rounds.map((r, i) => {
+    const tr = document.createElement('tr');
+    const cells = [`#${i + 1}`, r.points[0], r.points[1]];
+    cells.forEach((text, ci) => {
+      const td = document.createElement('td');
+      td.textContent = text;
+      if (ci === 1 || ci === 2) td.className = 'pts';
+      tr.append(td);
+    });
+
+    const actions = document.createElement('td');
+    actions.className = 'row-actions';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn del';
+    delBtn.title = 'Delete';
+    delBtn.setAttribute('aria-label', `Delete round #${i + 1}`);
+    delBtn.textContent = '🗑';
+    delBtn.addEventListener('click', () => deleteRound(r.id));
+    actions.append(delBtn);
+    tr.append(actions);
+    return tr;
+  }));
+}
+
+// --- Initialize player pads & event listeners ---
+[0, 1].forEach(pIdx => {
+  const pad = $(`pad-${pIdx}`);
+  BUTTON_VALUES.forEach(val => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = val;
+    btn.addEventListener('click', () => addPoints(pIdx, val));
+    pad.append(btn);
+  });
+});
+
+document.querySelectorAll('.rename').forEach(btn => {
+  btn.addEventListener('click', e => {
+    const idx = Number(e.currentTarget.dataset.index);
+    rename(idx);
+  });
+});
+
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('open-history').addEventListener('click', () => historyDialog.showModal());
+$('close-history').addEventListener('click', () => historyDialog.close());
+historyDialog.addEventListener('click', e => { if (e.target === historyDialog) historyDialog.close(); });
+
+$('reset').addEventListener('click', () => {
+  if (!confirm('Clear all rounds for both players?')) return;
+  state.rounds = [];
+  state.redo = [];
+  historyDialog.close();
+  save();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

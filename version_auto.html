@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cards Score Counter</title>
+<style>
+  :root {
+    --bg: #f5f5f4;
+    --surface: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --border: #d6d3d1;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --gold: #ca8a04;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --surface: #292524;
+      --text: #f5f5f4;
+      --muted: #a8a29e;
+      --border: #44403c;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --gold: #facc15;
+      --danger: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 120px; }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    padding: 8px 12px;
+  }
+  button:disabled { opacity: .35; cursor: default; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .selected { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+
+  /* --- Toolbar --- */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .toolbar button { flex: 1; padding: 8px 6px; font-size: .9rem; }
+
+  /* --- Score boxes (tap to choose who scored) --- */
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .total-box {
+    position: relative;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 8px 12px;
+    text-align: center;
+    min-width: 0;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .15s, background .15s, transform .1s;
+  }
+  .total-box:active { transform: scale(.98); }
+  .total-box.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .box-head { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 32px; }
+  .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; color: var(--muted); }
+  .total-box.selected .pname { color: var(--text); font-weight: 600; }
+  .crown { color: var(--gold); visibility: hidden; }
+  .total-box.leading .crown { visibility: visible; }
+  .total { font-size: 2.6rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .delta { font-size: .8rem; color: var(--muted); min-height: 1.2em; font-variant-numeric: tabular-nums; }
+  .delta.flash { animation: flash .9s ease-out; }
+  @keyframes flash { from { color: var(--accent); transform: scale(1.25); } to { color: var(--muted); transform: none; } }
+  .tag {
+    position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%);
+    background: var(--accent); color: #fff; font-size: .7rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px; visibility: hidden; white-space: nowrap;
+  }
+  .total-box.selected .tag { visibility: visible; }
+  .icon-btn { border: none; background: transparent; width: 32px; height: 32px; padding: 0; color: var(--muted); flex-shrink: 0; }
+  .icon-btn:hover { background: var(--bg); color: var(--text); }
+  .icon-btn.del:hover { color: var(--danger); }
+
+  .hint { text-align: center; color: var(--muted); font-size: .8rem; margin: 18px 0 10px; }
+
+  /* --- Points pad --- */
+  .values { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .values button { padding: 11px 0; font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .values button[data-pick="160"] { grid-column: span 2; }
+  .specials { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .specials button { padding: 10px 6px; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .specials small { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .specials .selected small { color: inherit; }
+  .bonuses { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .chip { padding: 11px 6px; border-style: dashed; }
+  .chip small { color: var(--muted); margin-left: 4px; }
+  .chip[aria-pressed="true"] { border-style: solid; background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+  .chip[aria-pressed="true"]::before { content: "✓ "; }
+  .chip[aria-pressed="true"] small { color: inherit; }
+
+  /* --- Bottom bar: preview + Add, always visible --- */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px rgb(0 0 0 / .08);
+  }
+  .bar.editing { border-top: 2px solid var(--accent); }
+  .bar-inner { max-width: 528px; margin: 0 auto; display: flex; align-items: center; gap: 10px; }
+  .preview { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+  .preview .line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .preview b { font-size: 1.1rem; }
+  .preview .muted { color: var(--muted); font-size: .8rem; }
+  .bar .primary { padding: 14px 22px; font-size: 1.05rem; }
+
+  /* --- History dialog --- */
+  dialog {
+    width: calc(100% - 32px);
+    max-width: 560px;
+    max-height: 85vh;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+  .dialog-head {
+    position: sticky; top: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .dialog-head h2 { font-size: 1.05rem; margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: .8rem; }
+  th:first-child, td:first-child { padding-left: 14px; color: var(--muted); }
+  td.pts { font-weight: 600; }
+  td.details { color: var(--muted); font-size: .85rem; }
+  td.row-actions { white-space: nowrap; text-align: right; padding-right: 10px; }
+  tfoot td { font-weight: 700; border-bottom: none; }
+  .empty { color: var(--muted); text-align: center; padding: 20px; margin: 0; }
+  .dialog-foot { padding: 14px; text-align: center; border-top: 1px solid var(--border); }
+  .reset-btn { color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <div class="toolbar">
+    <button id="undo" title="Undo last round">↶ Back</button>
+    <button id="redo" title="Redo round">Forward ↷</button>
+    <button id="open-history">History (0)</button>
+  </div>
+
+  <div class="board">
+    <div class="total-box" data-index="0" role="button" tabindex="0">
+      <div class="box-head"><span class="crown" title="Leading">★</span><span class="pname"></span><button class="icon-btn rename" aria-label="Rename player">✎</button></div>
+      <div class="total">0</div>
+      <div class="delta"></div>
+      <span class="tag">SCORING</span>
+    </div>
+    <div class="total-box" data-index="1" role="button" tabindex="0">
+      <div class="box-head"><span class="crown" title="Leading">★</span><span class="pname"></span><button class="icon-btn rename" aria-label="Rename player">✎</button></div>
+      <div class="total">0</div>
+      <div class="delta"></div>
+      <span class="tag">SCORING</span>
+    </div>
+  </div>
+
+  <p class="hint">Tap the player who scored, then their points</p>
+
+  <div class="values" id="values"></div>
+  <div class="specials" id="specials"></div>
+  <div class="bonuses">
+    <button type="button" class="chip" id="bonus-c" aria-pressed="false">C <small>+10</small></button>
+    <button type="button" class="chip" id="bonus-belote" aria-pressed="false">Belote <small>+20</small></button>
+  </div>
+</main>
+
+<div class="bar" id="bar">
+  <div class="bar-inner">
+    <div class="preview" id="preview"></div>
+    <button type="button" id="cancel-edit" hidden>Cancel</button>
+    <button type="button" id="submit" class="primary">Add</button>
+  </div>
+</div>
+
+<dialog id="history">
+  <div class="dialog-head">
+    <h2>History</h2>
+    <button class="icon-btn" id="close-history" aria-label="Close">✕</button>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th id="h-name0"></th><th id="h-name1"></th><th>Details</th><th></th></tr></thead>
+    <tbody id="history-body"></tbody>
+    <tfoot><tr><td>Σ</td><td id="h-total0"></td><td id="h-total1"></td><td colspan="2"></td></tr></tfoot>
+  </table>
+  <p class="empty" id="history-empty">No rounds yet</p>
+  <div class="dialog-foot"><button class="reset-btn" id="reset">Reset game</button></div>
+</dialog>
+
+<script>
+const STORAGE_KEY = 'cardsCalculator.v2';
+const OLD_STORAGE_KEY = 'cardsCalculator.v1';
+const BASE_TOTAL = 160;
+const BONUS_C = 10;
+const BONUS_BELOTE = 20;
+const VALUES = Array.from({ length: 17 }, (_, i) => i * 10); // 0, 10, … 160
+const SPECIALS = [
+  { key: 'capot3arbi', label: 'Capot 3arbi', value: 250 },
+  { key: 'contree', label: 'Contrée', value: 320 },
+  { key: 'capot', label: 'Capot', value: 500 },
+  { key: 'x2', label: 'x2', value: 640 },
+];
+
+const $ = id => document.getElementById(id);
+const boxes = [...document.querySelectorAll('.total-box')];
+const historyDialog = $('history');
+
+let state = load();
+let form = blankForm(0);
+let editingId = null; // id of the round loaded into the pad for editing
+
+function blankForm(player) {
+  return { player, pick: BASE_TOTAL, c: false, belote: false };
+}
+
+function defaultNames() {
+  return ['Player 1', 'Player 2'];
+}
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && Array.isArray(saved.names) && saved.names.length === 2
+        && Array.isArray(saved.rounds) && Array.isArray(saved.redo)) return saved;
+  } catch (e) {}
+  // Keep player names from the old free-number version; its scores don't fit the round model.
+  let names = defaultNames();
+  try {
+    const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY));
+    if (old && Array.isArray(old.players) && old.players.length === 2) names = old.players.map((p, i) => p.name || names[i]);
+  } catch (e) {}
+  return { names, rounds: [], redo: [] };
+}
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+const special = pick => SPECIALS.find(s => s.key === pick);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+function roundTotal(c, belote) {
+  return BASE_TOTAL + (c ? BONUS_C : 0) + (belote ? BONUS_BELOTE : 0);
+}
+
+// Selected player gets the picked value. For a normal value the other player gets
+// the rest of the round total; for a special (capot, contrée, x2) the other gets 0.
+function computePoints({ player, pick, c, belote }) {
+  const points = [0, 0];
+  const sp = special(pick);
+  if (sp) {
+    points[player] = sp.value;
+  } else {
+    points[player] = pick;
+    points[1 - player] = roundTotal(c, belote) - pick;
+  }
+  return points;
+}
+
+function makeRound(f) {
+  return { id: newId(), player: f.player, pick: f.pick, c: !!f.c, belote: !!f.belote, points: computePoints(f) };
+}
+
+function describe(round) {
+  const sp = special(round.pick);
+  const parts = [state.names[round.player] + ': ' + (sp ? sp.label : round.pick)];
+  if (!sp && round.c) parts.push('C');
+  if (!sp && round.belote) parts.push('Belote');
+  return parts.join(' · ');
+}
+
+const totals = () => state.rounds.reduce((t, r) => [t[0] + r.points[0], t[1] + r.points[1]], [0, 0]);
+
+// --- CRUD + undo/redo ---
+function submitForm() {
+  if (editingId) {
+    const round = state.rounds.find(r => r.id === editingId);
+    if (round) Object.assign(round, makeRound(form), { id: round.id });
+    editingId = null;
+  } else {
+    state.rounds.push(makeRound(form));
+  }
+  state.redo = [];
+  form = blankForm(form.player);
+  save(); render({ flash: true });
+}
+
+function startEdit(id) {
+  const round = state.rounds.find(r => r.id === id);
+  if (!round) return;
+  editingId = id;
+  form = { player: round.player, pick: round.pick, c: round.c, belote: round.belote };
+  historyDialog.close();
+  render();
+}
+
+function cancelEdit() {
+  editingId = null;
+  form = blankForm(form.player);
+  render();
+}
+
+function deleteRound(id) {
+  state.rounds = state.rounds.filter(r => r.id !== id);
+  state.redo = [];
+  save(); render();
+}
+
+function undo() {
+  if (!state.rounds.length) return;
+  state.redo.push(state.rounds.pop());
+  save(); render({ flash: true });
+}
+
+function redo() {
+  if (!state.redo.length) return;
+  state.rounds.push(state.redo.pop());
+  save(); render({ flash: true });
+}
+
+function rename(i) {
+  const name = prompt('Player name', state.names[i]);
+  if (name === null) return;
+  state.names[i] = name.trim().slice(0, 24) || defaultNames()[i];
+  save(); render();
+}
+
+// --- Rendering ---
+function render({ flash = false } = {}) {
+  if (editingId && !state.rounds.some(r => r.id === editingId)) {
+    editingId = null;
+    form = blankForm(form.player);
+  }
+
+  const t = totals();
+  const lead = t[0] === t[1] ? -1 : (t[0] > t[1] ? 0 : 1);
+  const last = state.rounds[state.rounds.length - 1];
+  boxes.forEach((box, i) => {
+    box.classList.toggle('leading', lead === i);
+    box.querySelector('.pname').textContent = state.names[i];
+    box.querySelector('.total').textContent = t[i];
+    const delta = box.querySelector('.delta');
+    delta.textContent = last ? `last round +${last.points[i]}` : '';
+    if (flash) {
+      delta.classList.remove('flash');
+      void delta.offsetWidth; // restart the animation
+      delta.classList.add('flash');
+    }
+  });
+
+  $('undo').disabled = state.rounds.length === 0;
+  $('redo').disabled = state.redo.length === 0;
+  $('open-history').textContent = `History (${state.rounds.length})`;
+
+  renderEntry();
+  renderHistory(t);
+}
+
+function renderEntry() {
+  boxes.forEach((box, i) => {
+    box.classList.toggle('selected', form.player === i);
+    box.setAttribute('aria-pressed', form.player === i);
+  });
+  document.querySelectorAll('#values button, #specials button').forEach(b => {
+    b.classList.toggle('selected', String(form.pick) === b.dataset.pick);
+  });
+
+  const isSpecial = !!special(form.pick);
+  [['c', 'bonus-c'], ['belote', 'bonus-belote']].forEach(([key, id]) => {
+    $(id).setAttribute('aria-pressed', !isSpecial && form[key]);
+    $(id).disabled = isSpecial;
+  });
+
+  $('bar').classList.toggle('editing', !!editingId);
+  $('submit').textContent = editingId ? 'Save' : 'Add';
+  $('cancel-edit').hidden = !editingId;
+
+  const points = computePoints(form);
+  const line = document.createElement('div');
+  line.className = 'line';
+  state.names.forEach((name, i) => {
+    if (i) line.append(' · ');
+    const b = document.createElement('b');
+    b.textContent = '+' + points[i];
+    line.append(name + ' ', b);
+  });
+  const note = document.createElement('div');
+  note.className = 'muted';
+  const editIndex = state.rounds.findIndex(r => r.id === editingId);
+  note.textContent = editingId ? `Editing round #${editIndex + 1}`
+    : isSpecial ? 'Other player gets 0'
+    : `Round total ${roundTotal(form.c, form.belote)}`;
+  $('preview').replaceChildren(line, note);
+}
+
+function renderHistory(t) {
+  $('h-name0').textContent = state.names[0];
+  $('h-name1').textContent = state.names[1];
+  $('h-total0').textContent = t[0];
+  $('h-total1').textContent = t[1];
+  $('history-empty').hidden = state.rounds.length > 0;
+
+  $('history-body').replaceChildren(...state.rounds.map((r, i) => {
+    const tr = document.createElement('tr');
+    const cells = [`#${i + 1}`, r.points[0], r.points[1], describe(r)];
+    cells.forEach((text, ci) => {
+      const td = document.createElement('td');
+      td.textContent = text;
+      if (ci === 1 || ci === 2) td.className = 'pts';
+      if (ci === 3) td.className = 'details';
+      tr.append(td);
+    });
+
+    const actions = document.createElement('td');
+    actions.className = 'row-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'icon-btn';
+    editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', `Edit round #${i + 1}`);
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', () => startEdit(r.id));
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn del';
+    delBtn.title = 'Delete';
+    delBtn.setAttribute('aria-label', `Delete round #${i + 1}`);
+    delBtn.textContent = '🗑';
+    delBtn.addEventListener('click', () => deleteRound(r.id));
+    actions.append(editBtn, delBtn);
+    tr.append(actions);
+    return tr;
+  }));
+}
+
+// --- Build static controls & wire events ---
+VALUES.forEach(v => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.pick = v;
+  b.textContent = v;
+  $('values').append(b);
+});
+SPECIALS.forEach(s => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.pick = s.key;
+  const small = document.createElement('small');
+  small.textContent = s.value;
+  b.append(s.label, small);
+  $('specials').append(b);
+});
+
+$('values').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) { form.pick = Number(b.dataset.pick); renderEntry(); }
+});
+$('specials').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) { form.pick = b.dataset.pick; renderEntry(); }
+});
+boxes.forEach((box, i) => {
+  const choose = () => { form.player = i; renderEntry(); };
+  box.addEventListener('click', choose);
+  box.addEventListener('keydown', e => {
+    if (e.target === box && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); choose(); }
+  });
+  box.querySelector('.rename').addEventListener('click', e => { e.stopPropagation(); rename(i); });
+});
+$('bonus-c').addEventListener('click', () => { form.c = !form.c; renderEntry(); });
+$('bonus-belote').addEventListener('click', () => { form.belote = !form.belote; renderEntry(); });
+$('submit').addEventListener('click', submitForm);
+$('cancel-edit').addEventListener('click', cancelEdit);
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('open-history').addEventListener('click', () => historyDialog.showModal());
+$('close-history').addEventListener('click', () => historyDialog.close());
+historyDialog.addEventListener('click', e => { if (e.target === historyDialog) historyDialog.close(); });
+
+$('reset').addEventListener('click', () => {
+  if (!confirm('Clear all rounds for both players?')) return;
+  state.rounds = [];
+  state.redo = [];
+  editingId = null;
+  form = blankForm(form.player);
+  historyDialog.close();
+  save(); render();
+});
+
+render();
+</script>
+</body>
+</html>
