@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ahmed Bradai logo</title>
+  <desc id="desc">Gold AB monogram and Ahmed Bradai wordmark on a black background.</desc>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff0b8"/>
+      <stop offset="0.28" stop-color="#d9a84f"/>
+      <stop offset="0.58" stop-color="#ffdf8a"/>
+      <stop offset="1" stop-color="#9e6825"/>
+    </linearGradient>
+    <linearGradient id="goldLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8b5b22"/>
+      <stop offset="0.5" stop-color="#ffe3a0"/>
+      <stop offset="1" stop-color="#9b692b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="#050505"/>
+  <g fill="url(#gold)">
+    <text x="800" y="430" text-anchor="middle"
+          font-family="Georgia, 'Times New Roman', serif" font-size="390"
+          font-weight="bold" letter-spacing="-42">AB</text>
+  </g>
+  <path d="M405 590 C585 465 755 390 930 365 C1080 344 1195 360 1300 430
+           C1170 385 1045 385 910 410 C730 445 555 525 405 590Z"
+        fill="url(#gold)"/>
+  <text x="800" y="765" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif" font-size="112"
+        letter-spacing="11" fill="url(#gold)">AHMED BRADAI</text>
+  <path d="M165 815 H660 M940 815 H1435" fill="none"
+        stroke="url(#goldLine)" stroke-width="5"/>
+</svg>
