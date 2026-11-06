@@ -38,14 +38,13 @@
   h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 20px; text-align: center; }
 
   .board { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .player { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-
   .total-box {
     background: var(--surface);
     border: 2px solid var(--border);
     border-radius: 12px;
     padding: 14px 12px;
     text-align: center;
+    min-width: 0;
     transition: border-color .15s, background .15s;
   }
   .total-box.leading { border-color: var(--accent); background: var(--accent-soft); }
@@ -63,19 +62,6 @@
   .name:hover, .name:focus { border-color: var(--border); outline: none; color: var(--text); }
   .total { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 4px; }
 
-  .add-row { display: flex; gap: 6px; }
-  input[type=number] {
-    flex: 1;
-    min-width: 0;
-    font: inherit;
-    font-size: 1rem;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--text);
-  }
-  input[type=number]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   button {
     font: inherit;
     cursor: pointer;
@@ -83,219 +69,444 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
+    padding: 8px 12px;
   }
-  .add-btn { background: var(--accent); border-color: var(--accent); color: #fff; padding: 10px 14px; font-weight: 600; }
+  button:disabled { opacity: .4; cursor: default; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 
-  .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-  .history li {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  .toolbar { display: flex; gap: 8px; margin: 16px 0; }
+  .toolbar button { flex: 1; }
+
+  .entry {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 4px 4px 4px 10px;
-    min-height: 40px;
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
-  .history .idx { color: var(--muted); font-size: .8rem; width: 2.2em; flex-shrink: 0; }
-  .history .val { flex: 1; font-variant-numeric: tabular-nums; font-weight: 600; }
-  .history input[type=number] { padding: 6px 8px; }
-  .icon-btn { border: none; background: transparent; width: 32px; height: 32px; color: var(--muted); font-size: 1rem; flex-shrink: 0; }
-  .icon-btn:hover { background: var(--bg); color: var(--text); }
-  .icon-btn.del:hover { color: var(--danger); }
-  .empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 8px 0; }
+  .entry.editing { border-color: var(--accent); }
+  .entry-title { font-weight: 600; font-size: .95rem; }
+  .label { color: var(--muted); font-size: .8rem; margin-bottom: 6px; }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .seg button, .values button, .specials button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .values { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+  .values button { padding: 10px 0; font-variant-numeric: tabular-nums; }
+  .specials { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-top: 6px; }
+  .specials small { color: var(--muted); margin-left: 4px; }
+  .selected { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+  .selected small { color: inherit; }
+
+  .checks { display: flex; gap: 20px; }
+  .checks label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .checks label.off { opacity: .4; cursor: default; }
+  .checks input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .checks small { color: var(--muted); }
+
+  .preview {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .preview b { font-size: 1.1rem; }
+  .preview .muted { color: var(--muted); font-size: .85rem; }
+  .actions { display: flex; gap: 8px; }
+  .actions .primary { flex: 1; padding: 12px; }
 
   footer { margin-top: 28px; text-align: center; }
   .reset-btn { padding: 10px 18px; color: var(--danger); }
+
+  dialog {
+    width: calc(100% - 32px);
+    max-width: 560px;
+    max-height: 80vh;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+  .dialog-head {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .dialog-head h2 { font-size: 1.05rem; margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: .8rem; }
+  th:first-child, td:first-child { padding-left: 14px; color: var(--muted); }
+  td.pts { font-weight: 600; }
+  td.details { color: var(--muted); font-size: .85rem; }
+  td.row-actions { white-space: nowrap; text-align: right; padding-right: 10px; }
+  tfoot td { font-weight: 700; border-bottom: none; }
+  .icon-btn { border: none; background: transparent; width: 32px; height: 32px; padding: 0; color: var(--muted); }
+  .icon-btn:hover { background: var(--bg); color: var(--text); }
+  .icon-btn.del:hover { color: var(--danger); }
+  .empty { color: var(--muted); text-align: center; padding: 20px; margin: 0; }
 </style>
 </head>
 <body>
 <main>
   <h1>Score Counter</h1>
-  <div class="board" id="board"></div>
+
+  <div class="board">
+    <div class="total-box" data-index="0">
+      <input class="name" aria-label="Player 1 name" maxlength="24">
+      <div class="total">0</div>
+    </div>
+    <div class="total-box" data-index="1">
+      <input class="name" aria-label="Player 2 name" maxlength="24">
+      <div class="total">0</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button id="undo" title="Undo last round">↶ Back</button>
+    <button id="redo" title="Redo round">Forward ↷</button>
+    <button id="open-history">History (0)</button>
+  </div>
+
+  <section class="entry" id="entry">
+    <div class="entry-title" id="entry-title">New round</div>
+    <div>
+      <div class="label">Player</div>
+      <div class="seg" id="player-select">
+        <button type="button" data-player="0"></button>
+        <button type="button" data-player="1"></button>
+      </div>
+    </div>
+    <div>
+      <div class="label">Score</div>
+      <div class="values" id="values"></div>
+      <div class="specials" id="specials"></div>
+    </div>
+    <div class="checks">
+      <label id="lbl-c"><input type="checkbox" id="chk-c"> C <small>+10</small></label>
+      <label id="lbl-belote"><input type="checkbox" id="chk-belote"> Belote <small>+20</small></label>
+    </div>
+    <div class="preview" id="preview"></div>
+    <div class="actions">
+      <button type="button" id="cancel-edit" hidden>Cancel</button>
+      <button type="button" id="submit" class="primary">Add round</button>
+    </div>
+  </section>
+
   <footer><button class="reset-btn" id="reset">Reset game</button></footer>
 </main>
 
-<template id="player-tpl">
-  <section class="player">
-    <div class="total-box">
-      <input class="name" aria-label="Player name" maxlength="24">
-      <div class="total">0</div>
-    </div>
-    <form class="add-row">
-      <input type="number" inputmode="numeric" step="any" placeholder="Score" aria-label="New score">
-      <button type="submit" class="add-btn">Add</button>
-    </form>
-    <ol class="history"></ol>
-  </section>
-</template>
+<dialog id="history">
+  <div class="dialog-head">
+    <h2>History</h2>
+    <button class="icon-btn" id="close-history" aria-label="Close">✕</button>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th id="h-name0"></th><th id="h-name1"></th><th>Details</th><th></th></tr></thead>
+    <tbody id="history-body"></tbody>
+    <tfoot><tr><td>Σ</td><td id="h-total0"></td><td id="h-total1"></td><td colspan="2"></td></tr></tfoot>
+  </table>
+  <p class="empty" id="history-empty">No rounds yet</p>
+</dialog>
 
 <script>
-const STORAGE_KEY = 'cardsCalculator.v1';
-const board = document.getElementById('board');
-const tpl = document.getElementById('player-tpl');
+const STORAGE_KEY = 'cardsCalculator.v2';
+const OLD_STORAGE_KEY = 'cardsCalculator.v1';
+const BASE_TOTAL = 160;
+const BONUS_C = 10;
+const BONUS_BELOTE = 20;
+const VALUES = Array.from({ length: 17 }, (_, i) => i * 10); // 0, 10, … 160
+const SPECIALS = [
+  { key: 'capot3arbi', label: 'Capot 3arbi', value: 250 },
+  { key: 'contree', label: 'Contrée', value: 320 },
+  { key: 'capot', label: 'Capot', value: 500 },
+  { key: 'x2', label: 'x2', value: 640 },
+];
+
+const $ = id => document.getElementById(id);
+const boxes = [...document.querySelectorAll('.total-box')];
+const playerButtons = [...document.querySelectorAll('#player-select button')];
+const historyDialog = $('history');
 
 let state = load();
-let editing = null; // { player, id } while an entry is being edited
+let form = blankForm(0);
+let editingId = null; // id of the round loaded into the entry panel for editing
 
-function defaultState() {
-  return { players: [{ name: 'Player 1', scores: [] }, { name: 'Player 2', scores: [] }] };
+function blankForm(player) {
+  return { player, pick: BASE_TOTAL, c: false, belote: false };
+}
+
+function defaultNames() {
+  return ['Player 1', 'Player 2'];
 }
 
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && Array.isArray(saved.players) && saved.players.length === 2) return saved;
+    if (saved && Array.isArray(saved.names) && saved.names.length === 2
+        && Array.isArray(saved.rounds) && Array.isArray(saved.redo)) return saved;
   } catch (e) {}
-  return defaultState();
+  // Keep player names from the old free-number version; its scores don't fit the round model.
+  let names = defaultNames();
+  try {
+    const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY));
+    if (old && Array.isArray(old.players) && old.players.length === 2) names = old.players.map((p, i) => p.name || names[i]);
+  } catch (e) {}
+  return { names, rounds: [], redo: [] };
 }
 
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
 
-function parseScore(text) {
-  if (text.trim() === '') return null;
-  const n = Number(text);
-  return Number.isFinite(n) ? n : null;
-}
-
-const total = p => p.scores.reduce((sum, s) => sum + s.value, 0);
+const special = pick => SPECIALS.find(s => s.key === pick);
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-// --- CRUD ---
-function addScore(pi, value) {
-  state.players[pi].scores.push({ id: newId(), value });
+function roundTotal(c, belote) {
+  return BASE_TOTAL + (c ? BONUS_C : 0) + (belote ? BONUS_BELOTE : 0);
+}
+
+// Selected player gets the picked value. For a normal value the other player gets
+// the rest of the round total; for a special (capot, contrée, x2) the other gets 0.
+function computePoints({ player, pick, c, belote }) {
+  const points = [0, 0];
+  const sp = special(pick);
+  if (sp) {
+    points[player] = sp.value;
+  } else {
+    points[player] = pick;
+    points[1 - player] = roundTotal(c, belote) - pick;
+  }
+  return points;
+}
+
+function makeRound(f) {
+  return { id: newId(), player: f.player, pick: f.pick, c: !!f.c, belote: !!f.belote, points: computePoints(f) };
+}
+
+function describe(round) {
+  const sp = special(round.pick);
+  const parts = [state.names[round.player] + ': ' + (sp ? sp.label : round.pick)];
+  if (!sp && round.c) parts.push('C');
+  if (!sp && round.belote) parts.push('Belote');
+  return parts.join(' · ');
+}
+
+const totals = () => state.rounds.reduce((t, r) => [t[0] + r.points[0], t[1] + r.points[1]], [0, 0]);
+
+// --- CRUD + undo/redo ---
+function submitForm() {
+  if (editingId) {
+    const round = state.rounds.find(r => r.id === editingId);
+    if (round) Object.assign(round, makeRound(form), { id: round.id });
+    editingId = null;
+  } else {
+    state.rounds.push(makeRound(form));
+  }
+  state.redo = [];
+  form = blankForm(form.player);
   save(); render();
 }
 
-function updateScore(pi, id, value) {
-  const entry = state.players[pi].scores.find(s => s.id === id);
-  if (entry) entry.value = value;
-  editing = null;
+function startEdit(id) {
+  const round = state.rounds.find(r => r.id === id);
+  if (!round) return;
+  editingId = id;
+  form = { player: round.player, pick: round.pick, c: round.c, belote: round.belote };
+  historyDialog.close();
+  render();
+  $('entry').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelEdit() {
+  editingId = null;
+  form = blankForm(form.player);
+  render();
+}
+
+function deleteRound(id) {
+  state.rounds = state.rounds.filter(r => r.id !== id);
+  state.redo = [];
   save(); render();
 }
 
-function deleteScore(pi, id) {
-  state.players[pi].scores = state.players[pi].scores.filter(s => s.id !== id);
-  if (editing && editing.id === id) editing = null;
+function undo() {
+  if (!state.rounds.length) return;
+  state.redo.push(state.rounds.pop());
   save(); render();
 }
 
-function renamePlayer(pi, name) {
-  state.players[pi].name = name.trim() || `Player ${pi + 1}`;
+function redo() {
+  if (!state.redo.length) return;
+  state.rounds.push(state.redo.pop());
   save(); render();
 }
 
 // --- Rendering ---
 function render() {
-  const totals = state.players.map(total);
-  const lead = totals[0] === totals[1] ? -1 : (totals[0] > totals[1] ? 0 : 1);
-  const focusedAdd = document.activeElement?.closest('.add-row') ? document.activeElement.closest('.player')?.dataset.index : null;
+  if (editingId && !state.rounds.some(r => r.id === editingId)) {
+    editingId = null;
+    form = blankForm(form.player);
+  }
 
-  board.replaceChildren(...state.players.map((p, pi) => {
-    const el = tpl.content.firstElementChild.cloneNode(true);
-    el.dataset.index = pi;
+  const t = totals();
+  const lead = t[0] === t[1] ? -1 : (t[0] > t[1] ? 0 : 1);
+  boxes.forEach((box, i) => {
+    box.classList.toggle('leading', lead === i);
+    box.querySelector('.total').textContent = t[i];
+    const nameInput = box.querySelector('.name');
+    if (document.activeElement !== nameInput) nameInput.value = state.names[i];
+  });
 
-    el.querySelector('.total-box').classList.toggle('leading', lead === pi);
-    el.querySelector('.total').textContent = formatNum(totals[pi]);
+  $('undo').disabled = state.rounds.length === 0;
+  $('redo').disabled = state.redo.length === 0;
+  $('open-history').textContent = `History (${state.rounds.length})`;
 
-    const nameInput = el.querySelector('.name');
-    nameInput.value = p.name;
-    nameInput.addEventListener('change', () => renamePlayer(pi, nameInput.value));
-    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') nameInput.blur(); });
+  renderEntry();
+  renderHistory(t);
+}
 
-    const form = el.querySelector('.add-row');
-    const scoreInput = form.querySelector('input');
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const value = parseScore(scoreInput.value);
-      if (value === null) return;
-      addScore(pi, value);
-      board.querySelector(`[data-index="${pi}"] .add-row input`).focus();
+function renderEntry() {
+  const editIndex = state.rounds.findIndex(r => r.id === editingId);
+  $('entry').classList.toggle('editing', !!editingId);
+  $('entry-title').textContent = editingId ? `Editing round #${editIndex + 1}` : 'New round';
+  $('submit').textContent = editingId ? 'Save' : 'Add round';
+  $('cancel-edit').hidden = !editingId;
+
+  playerButtons.forEach((b, i) => {
+    b.textContent = state.names[i];
+    b.classList.toggle('selected', form.player === i);
+  });
+  document.querySelectorAll('#values button, #specials button').forEach(b => {
+    b.classList.toggle('selected', String(form.pick) === b.dataset.pick);
+  });
+
+  const isSpecial = !!special(form.pick);
+  [['c', 'chk-c', 'lbl-c'], ['belote', 'chk-belote', 'lbl-belote']].forEach(([key, chk, lbl]) => {
+    $(chk).checked = form[key];
+    $(chk).disabled = isSpecial;
+    $(lbl).classList.toggle('off', isSpecial);
+  });
+
+  const points = computePoints(form);
+  const preview = $('preview');
+  preview.replaceChildren();
+  state.names.forEach((name, i) => {
+    if (i) preview.append(' · ');
+    const b = document.createElement('b');
+    b.textContent = points[i];
+    preview.append(name + ' ', b);
+  });
+  const note = document.createElement('div');
+  note.className = 'muted';
+  note.textContent = isSpecial ? 'Other player gets 0' : `Round total ${roundTotal(form.c, form.belote)}`;
+  preview.append(note);
+}
+
+function renderHistory(t) {
+  $('h-name0').textContent = state.names[0];
+  $('h-name1').textContent = state.names[1];
+  $('h-total0').textContent = t[0];
+  $('h-total1').textContent = t[1];
+  $('history-empty').hidden = state.rounds.length > 0;
+
+  $('history-body').replaceChildren(...state.rounds.map((r, i) => {
+    const tr = document.createElement('tr');
+    const cells = [`#${i + 1}`, r.points[0], r.points[1], describe(r)];
+    cells.forEach((text, ci) => {
+      const td = document.createElement('td');
+      td.textContent = text;
+      if (ci === 1 || ci === 2) td.className = 'pts';
+      if (ci === 3) td.className = 'details';
+      tr.append(td);
     });
 
-    const list = el.querySelector('.history');
-    if (p.scores.length === 0) {
-      const empty = document.createElement('li');
-      empty.className = 'empty';
-      empty.style.border = 'none';
-      empty.style.background = 'transparent';
-      empty.textContent = 'No scores yet';
-      list.append(empty);
-    }
-    p.scores.forEach((s, i) => list.append(renderEntry(pi, s, i)));
-
-    return el;
+    const actions = document.createElement('td');
+    actions.className = 'row-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'icon-btn';
+    editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', `Edit round #${i + 1}`);
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', () => startEdit(r.id));
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn del';
+    delBtn.title = 'Delete';
+    delBtn.setAttribute('aria-label', `Delete round #${i + 1}`);
+    delBtn.textContent = '🗑';
+    delBtn.addEventListener('click', () => deleteRound(r.id));
+    actions.append(editBtn, delBtn);
+    tr.append(actions);
+    return tr;
   }));
-
-  if (focusedAdd !== null && focusedAdd !== undefined) {
-    board.querySelector(`[data-index="${focusedAdd}"] .add-row input`)?.focus();
-  }
 }
 
-function renderEntry(pi, s, i) {
-  const li = document.createElement('li');
-  const idx = document.createElement('span');
-  idx.className = 'idx';
-  idx.textContent = `#${i + 1}`;
-  li.append(idx);
+// --- Build static controls & wire events ---
+VALUES.forEach(v => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.pick = v;
+  b.textContent = v;
+  $('values').append(b);
+});
+SPECIALS.forEach(s => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.pick = s.key;
+  const small = document.createElement('small');
+  small.textContent = s.value;
+  b.append(s.label, small);
+  $('specials').append(b);
+});
 
-  if (editing && editing.player === pi && editing.id === s.id) {
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.inputMode = 'numeric';
-    input.step = 'any';
-    input.value = s.value;
-    input.setAttribute('aria-label', `Edit score #${i + 1}`);
-    let done = false;
-    const commit = () => {
-      if (done) return;
-      done = true;
-      const value = parseScore(input.value);
-      if (value === null) { editing = null; render(); }
-      else updateScore(pi, s.id, value);
-    };
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') commit();
-      if (e.key === 'Escape') { done = true; editing = null; render(); }
-    });
-    input.addEventListener('blur', commit);
-    li.append(input);
-    requestAnimationFrame(() => { input.focus(); input.select(); });
-    return li;
-  }
+$('values').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) { form.pick = Number(b.dataset.pick); renderEntry(); }
+});
+$('specials').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) { form.pick = b.dataset.pick; renderEntry(); }
+});
+playerButtons.forEach((b, i) => b.addEventListener('click', () => { form.player = i; renderEntry(); }));
+$('chk-c').addEventListener('change', e => { form.c = e.target.checked; renderEntry(); });
+$('chk-belote').addEventListener('change', e => { form.belote = e.target.checked; renderEntry(); });
+$('submit').addEventListener('click', submitForm);
+$('cancel-edit').addEventListener('click', cancelEdit);
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('open-history').addEventListener('click', () => historyDialog.showModal());
+$('close-history').addEventListener('click', () => historyDialog.close());
+historyDialog.addEventListener('click', e => { if (e.target === historyDialog) historyDialog.close(); });
 
-  const val = document.createElement('span');
-  val.className = 'val';
-  val.textContent = formatNum(s.value);
+boxes.forEach((box, i) => {
+  const nameInput = box.querySelector('.name');
+  nameInput.addEventListener('input', () => {
+    state.names[i] = nameInput.value;
+    renderEntry();
+    renderHistory(totals());
+  });
+  nameInput.addEventListener('change', () => {
+    state.names[i] = nameInput.value.trim() || `Player ${i + 1}`;
+    save(); render();
+  });
+  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') nameInput.blur(); });
+});
 
-  const editBtn = document.createElement('button');
-  editBtn.className = 'icon-btn';
-  editBtn.title = 'Edit';
-  editBtn.setAttribute('aria-label', `Edit score #${i + 1}`);
-  editBtn.textContent = '✎';
-  editBtn.addEventListener('click', () => { editing = { player: pi, id: s.id }; render(); });
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'icon-btn del';
-  delBtn.title = 'Delete';
-  delBtn.setAttribute('aria-label', `Delete score #${i + 1}`);
-  delBtn.textContent = '🗑';
-  delBtn.addEventListener('click', () => deleteScore(pi, s.id));
-
-  li.append(val, editBtn, delBtn);
-  return li;
-}
-
-function formatNum(n) {
-  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
-}
-
-document.getElementById('reset').addEventListener('click', () => {
-  if (!confirm('Clear all scores for both players?')) return;
-  state.players.forEach(p => { p.scores = []; });
-  editing = null;
+$('reset').addEventListener('click', () => {
+  if (!confirm('Clear all rounds for both players?')) return;
+  state.rounds = [];
+  state.redo = [];
+  editingId = null;
+  form = blankForm(form.player);
   save(); render();
 });
 
