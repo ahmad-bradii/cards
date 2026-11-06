@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cards Score Counter</title>
+<style>
+  :root {
+    --bg: #f5f5f4;
+    --surface: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --border: #d6d3d1;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --surface: #292524;
+      --text: #f5f5f4;
+      --muted: #a8a29e;
+      --border: #44403c;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a5f;
+      --danger: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 20px; text-align: center; }
+
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .player { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .total-box {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    transition: border-color .15s, background .15s;
+  }
+  .total-box.leading { border-color: var(--accent); background: var(--accent-soft); }
+  .name {
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: .95rem;
+    text-align: center;
+    padding: 4px;
+    border-radius: 6px;
+  }
+  .name:hover, .name:focus { border-color: var(--border); outline: none; color: var(--text); }
+  .total { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 4px; }
+
+  .add-row { display: flex; gap: 6px; }
+  input[type=number] {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 1rem;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  input[type=number]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .add-btn { background: var(--accent); border-color: var(--accent); color: #fff; padding: 10px 14px; font-weight: 600; }
+
+  .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .history li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 4px 4px 10px;
+    min-height: 40px;
+  }
+  .history .idx { color: var(--muted); font-size: .8rem; width: 2.2em; flex-shrink: 0; }
+  .history .val { flex: 1; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .history input[type=number] { padding: 6px 8px; }
+  .icon-btn { border: none; background: transparent; width: 32px; height: 32px; color: var(--muted); font-size: 1rem; flex-shrink: 0; }
+  .icon-btn:hover { background: var(--bg); color: var(--text); }
+  .icon-btn.del:hover { color: var(--danger); }
+  .empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 8px 0; }
+
+  footer { margin-top: 28px; text-align: center; }
+  .reset-btn { padding: 10px 18px; color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Score Counter</h1>
+  <div class="board" id="board"></div>
+  <footer><button class="reset-btn" id="reset">Reset game</button></footer>
+</main>
+
+<template id="player-tpl">
+  <section class="player">
+    <div class="total-box">
+      <input class="name" aria-label="Player name" maxlength="24">
+      <div class="total">0</div>
+    </div>
+    <form class="add-row">
+      <input type="number" inputmode="numeric" step="any" placeholder="Score" aria-label="New score">
+      <button type="submit" class="add-btn">Add</button>
+    </form>
+    <ol class="history"></ol>
+  </section>
+</template>
+
+<script>
+const STORAGE_KEY = 'cardsCalculator.v1';
+const board = document.getElementById('board');
+const tpl = document.getElementById('player-tpl');
+
+let state = load();
+let editing = null; // { player, id } while an entry is being edited
+
+function defaultState() {
+  return { players: [{ name: 'Player 1', scores: [] }, { name: 'Player 2', scores: [] }] };
+}
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && Array.isArray(saved.players) && saved.players.length === 2) return saved;
+  } catch (e) {}
+  return defaultState();
+}
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function parseScore(text) {
+  if (text.trim() === '') return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+}
+
+const total = p => p.scores.reduce((sum, s) => sum + s.value, 0);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// --- CRUD ---
+function addScore(pi, value) {
+  state.players[pi].scores.push({ id: newId(), value });
+  save(); render();
+}
+
+function updateScore(pi, id, value) {
+  const entry = state.players[pi].scores.find(s => s.id === id);
+  if (entry) entry.value = value;
+  editing = null;
+  save(); render();
+}
+
+function deleteScore(pi, id) {
+  state.players[pi].scores = state.players[pi].scores.filter(s => s.id !== id);
+  if (editing && editing.id === id) editing = null;
+  save(); render();
+}
+
+function renamePlayer(pi, name) {
+  state.players[pi].name = name.trim() || `Player ${pi + 1}`;
+  save(); render();
+}
+
+// --- Rendering ---
+function render() {
+  const totals = state.players.map(total);
+  const lead = totals[0] === totals[1] ? -1 : (totals[0] > totals[1] ? 0 : 1);
+  const focusedAdd = document.activeElement?.closest('.add-row') ? document.activeElement.closest('.player')?.dataset.index : null;
+
+  board.replaceChildren(...state.players.map((p, pi) => {
+    const el = tpl.content.firstElementChild.cloneNode(true);
+    el.dataset.index = pi;
+
+    el.querySelector('.total-box').classList.toggle('leading', lead === pi);
+    el.querySelector('.total').textContent = formatNum(totals[pi]);
+
+    const nameInput = el.querySelector('.name');
+    nameInput.value = p.name;
+    nameInput.addEventListener('change', () => renamePlayer(pi, nameInput.value));
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') nameInput.blur(); });
+
+    const form = el.querySelector('.add-row');
+    const scoreInput = form.querySelector('input');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const value = parseScore(scoreInput.value);
+      if (value === null) return;
+      addScore(pi, value);
+      board.querySelector(`[data-index="${pi}"] .add-row input`).focus();
+    });
+
+    const list = el.querySelector('.history');
+    if (p.scores.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.style.border = 'none';
+      empty.style.background = 'transparent';
+      empty.textContent = 'No scores yet';
+      list.append(empty);
+    }
+    p.scores.forEach((s, i) => list.append(renderEntry(pi, s, i)));
+
+    return el;
+  }));
+
+  if (focusedAdd !== null && focusedAdd !== undefined) {
+    board.querySelector(`[data-index="${focusedAdd}"] .add-row input`)?.focus();
+  }
+}
+
+function renderEntry(pi, s, i) {
+  const li = document.createElement('li');
+  const idx = document.createElement('span');
+  idx.className = 'idx';
+  idx.textContent = `#${i + 1}`;
+  li.append(idx);
+
+  if (editing && editing.player === pi && editing.id === s.id) {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'numeric';
+    input.step = 'any';
+    input.value = s.value;
+    input.setAttribute('aria-label', `Edit score #${i + 1}`);
+    let done = false;
+    const commit = () => {
+      if (done) return;
+      done = true;
+      const value = parseScore(input.value);
+      if (value === null) { editing = null; render(); }
+      else updateScore(pi, s.id, value);
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') commit();
+      if (e.key === 'Escape') { done = true; editing = null; render(); }
+    });
+    input.addEventListener('blur', commit);
+    li.append(input);
+    requestAnimationFrame(() => { input.focus(); input.select(); });
+    return li;
+  }
+
+  const val = document.createElement('span');
+  val.className = 'val';
+  val.textContent = formatNum(s.value);
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'icon-btn';
+  editBtn.title = 'Edit';
+  editBtn.setAttribute('aria-label', `Edit score #${i + 1}`);
+  editBtn.textContent = '✎';
+  editBtn.addEventListener('click', () => { editing = { player: pi, id: s.id }; render(); });
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'icon-btn del';
+  delBtn.title = 'Delete';
+  delBtn.setAttribute('aria-label', `Delete score #${i + 1}`);
+  delBtn.textContent = '🗑';
+  delBtn.addEventListener('click', () => deleteScore(pi, s.id));
+
+  li.append(val, editBtn, delBtn);
+  return li;
+}
+
+function formatNum(n) {
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+document.getElementById('reset').addEventListener('click', () => {
+  if (!confirm('Clear all scores for both players?')) return;
+  state.players.forEach(p => { p.scores = []; });
+  editing = null;
+  save(); render();
+});
+
+render();
+</script>
+</body>
+</html>
